@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\ShopifyBilling.props" />
+</Project>
