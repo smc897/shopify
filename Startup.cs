@@ -11,6 +11,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ShopifyBilling.Models;
+using ShopifyBilling;
 
  public class Startup{
   public IConfiguration configRoot {
@@ -20,8 +21,45 @@ using ShopifyBilling.Models;
         configRoot = configuration;
     }
  public void ConfigureServices(IServiceCollection services) {
-        
+        services.AddControllersWithViews();
+ // Add cookie authentication
+ var authScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+ services
+ .AddAuthentication(authScheme)
+ .AddCookie(ConfigureCookieAuthentication);
+ // Add Entity Framework and the DataContext
+ services.AddDbContext<DataContext>(options =>
+options.UseSqlServer(GetSqlConnectionString()));
+ // Add ISecrets to Dependency Injection
+ services.AddSingleton<ISecrets, Secrets>();
     }
+
+//configure cookie authentication
+private void ConfigureCookieAuthentication(CookieAuthenticationOptions options)
+ {
+ options.Cookie.HttpOnly = true;
+ options.SlidingExpiration = true;
+ options.ExpireTimeSpan = TimeSpan.FromDays(1);
+ options.LogoutPath = "/Auth/Logout";
+ options.LoginPath = "/Auth/Login";
+ options.AccessDeniedPath = "/Auth/Login";
+ }
+
+//configure connection string
+private string GetSqlConnectionString()
+ {
+ var partialConnectionString =
+configRoot.GetConnectionString("DefaultConnection");
+ var password = configRoot.GetValue<string>("sqlPassword");
+ var connStr = new SqlConnectionStringBuilder(partialConnectionString)
+ {
+ Password = password,
+ Authentication = SqlAuthenticationMethod.SqlPassword
+ };
+ return connStr.ToString();
+ }
+
+
 
  public void Configure(IWebHostEnvironment env){
   var builder = WebApplication.CreateBuilder();
@@ -44,9 +82,9 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
-
+app.UseStatusCodePages();
 app.UseAuthorization();
-
+app.UseAuthentication();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
